@@ -1,4 +1,4 @@
-import * as cron from "node-cron";
+import { CronJob } from "cron";
 import { Foco, Propriedade, ApiFoco } from "./types/types";
 import { haversineDistance } from "./actions/haversineDistance";
 import { getBoundingBox } from "./actions/getBoundingBox";
@@ -95,14 +95,16 @@ async function main() {
   });
 }
 
-cron.schedule("0 * * * *", async () => {
-  console.log(`Executando tarefa em: ${new Date().toISOString()}`);
-  await main().catch((error) => {
-    console.error("Erro ao executar a tarefa:", error);
-  });
-});
-
-process.on("SIGINT", () => {
-  console.log("Parando a aplicação...");
-  process.exit(0);
-});
+const job = new CronJob(
+	'0 * * * * *', // cronTime
+	function () {
+		console.log('Executando tarefa agendada...');
+    main()
+      .then(() => console.log('Tarefa concluída com sucesso!'))
+      .catch((error) => console.error('Erro ao executar a tarefa:', error));
+	},
+	null,
+	true,
+	'America/Sao_Paulo'
+);
+job.start();
