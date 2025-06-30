@@ -47,7 +47,7 @@ async function main() {
     return;
   }
 
-  const response = await axios.get("http://api.isaacsales.me/get-data");
+  const response = await axios.get("https://eco-radar-api.hiarley.me/get-data");
   const apiFocos: ApiFoco[] = response.data;
 
   const focos: Foco[] = apiFocos.map(
@@ -96,7 +96,7 @@ async function main() {
 }
 
 const job = new CronJob(
-	'0 * * * * *', // cronTime
+	'0 * * * * *',
 	function () {
 		console.log('Executando tarefa agendada...');
     main()
