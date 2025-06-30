@@ -1,4 +1,4 @@
-import { CronJob } from "cron";
+import * as cron from "node-cron";
 import { Foco, Propriedade, ApiFoco } from "./types/types";
 import { haversineDistance } from "./actions/haversineDistance";
 import { getBoundingBox } from "./actions/getBoundingBox";
@@ -47,7 +47,7 @@ async function main() {
     return;
   }
 
-  const response = await axios.get("https://eco-radar-api.hiarley.me/get-data");
+  const response = await axios.get("http://api.isaacsales.me/get-data");
   const apiFocos: ApiFoco[] = response.data;
 
   const focos: Foco[] = apiFocos.map(
@@ -65,13 +65,16 @@ async function main() {
   propriedades.forEach(async (propriedade) => {
     const focosProximos = focosDentroDoRaio(propriedade, focos);
     if (focosProximos.length > 0) {
-      const maiorFrp = Math.max(...focosProximos.map((foco) => foco.frp));
+      const focoMaisIntenso = focosProximos.reduce((prev, current) =>
+        current.frp > prev.frp ? current : prev
+      );
+
       let nivelAlerta: string;
-      if (maiorFrp < 5) {
+      if (focoMaisIntenso.frp < 5) {
         nivelAlerta = "baixo";
-      } else if (maiorFrp < 20 && maiorFrp >= 5) {
+      } else if (focoMaisIntenso.frp < 20) {
         nivelAlerta = "médio";
-      } else if (maiorFrp < 50 && maiorFrp >= 20) {
+      } else if (focoMaisIntenso.frp < 50) {
         nivelAlerta = "alto";
       } else {
         nivelAlerta = "crítico";
@@ -84,6 +87,9 @@ async function main() {
         owner_id: propriedade.owner_id,
         nivelAlerta: nivelAlerta,
         nome: propriedade.nome,
+        latitude: focoMaisIntenso.latitude,
+        longitude: focoMaisIntenso.longitude,
+        frp: focoMaisIntenso.frp,
         created_at: dayjs().tz("America/Sao_Paulo").format(),
       });
     } else {
@@ -95,16 +101,14 @@ async function main() {
   });
 }
 
-const job = new CronJob(
-	'0 * * * * *',
-	function () {
-		console.log('Executando tarefa agendada...');
-    main()
-      .then(() => console.log('Tarefa concluída com sucesso!'))
-      .catch((error) => console.error('Erro ao executar a tarefa:', error));
-	},
-	null,
-	true,
-	'America/Sao_Paulo'
-);
-job.start();
+cron.schedule("0 * * * *", async () => {
+  console.log(`Executando tarefa em: ${new Date().toISOString()}`);
+  await main().catch((error) => {
+    console.error("Erro ao executar a tarefa:", error);
+  });
+});
+
+process.on("SIGINT", () => {
+  console.log("Parando a aplicação...");
+  process.exit(0);
+});
